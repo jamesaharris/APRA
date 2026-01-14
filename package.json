@@ -10,7 +10,8 @@
     "tailbuild": "tailwind build -i ./src/assets/css/tailinit.css -o ./src/assets/css/tailwindcss.css --minify",
     "tailwatch": "tailwind build -i ./src/assets/css/tailinit.css -o ./src/assets/css/tailwindcss.css --watch",
     "dist:windows": "electron-builder --windows",
-    "dist:linux": "electron-builder --linux"
+    "dist:linux": "electron-builder --linux",
+    "dist:mac": "electron-builder --mac --arm64"
   },
   "repository": "https://github.com/mignaway/EpubReader",
   "publish": {
@@ -22,8 +23,14 @@
     "win": {
       "target": [
         "nsis"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
       ],
-      "icon": "src/icon.ico"
+      "category": "public.app-category.productivity"
     },
     "linux": {
       "target": [
@@ -87,6 +94,7 @@
     }
   },
   "dependencies": {
+    "concurrently": "^9.2.1",
     "dominant-color": "^0.0.1",
     "ebook-convert": "^2.0.1",
     "electron-squirrel-startup": "^1.0.0",

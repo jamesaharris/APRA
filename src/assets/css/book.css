@@ -12,6 +12,130 @@
     border-bottom: .5px solid rgba(0, 0, 0, 0.1);
 }
 
+#annotation-panel {
+    width: 320px;
+    max-height: calc(100% - 40px);
+    border-radius: 20px;
+    padding: 30px;
+    background-color: rgba(255, 255, 255, .9);
+    box-shadow: 0 20px 60px rgba(0,0,0,.15);
+    gap: 20px;
+    justify-content: flex-start;
+    position: relative;
+}
+
+#annotation-panel h1 {
+    font-size: 20px;
+}
+
+.annotation-panel-header {
+    justify-content: space-between;
+}
+
+.annotation-toolbar {
+    gap: 15px;
+}
+
+.annotation-colors {
+    gap: 10px;
+}
+
+.annotation-color-swatch {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform .2s, border-color .2s;
+}
+
+.annotation-color-swatch.active {
+    border-color: black;
+    transform: scale(1.1);
+}
+
+#annotation-note-input {
+    width: 100%;
+    min-height: 70px;
+    border-radius: 10px;
+    border: 1px solid rgba(0,0,0,.2);
+    padding: 10px;
+    resize: vertical;
+    background-color: #f8f8f8;
+}
+
+#annotation-note-input:focus {
+    outline: none;
+    border-color: #1E69DB;
+}
+
+#annotation-add-btn {
+    border-radius: 999px;
+    padding: 10px 20px;
+    background-color: black;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background-color .2s;
+}
+
+#annotation-add-btn:hover {
+    background-color: #1E1E1E;
+}
+
+.annotation-list {
+    max-height: calc(100% - 220px);
+    overflow-y: auto;
+    gap: 12px;
+    padding-right: 5px;
+}
+
+.annotation-list-item {
+    border-radius: 12px;
+    background-color: #f1f1f1;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.annotation-list-item .annotation-snippet {
+    font-size: 14px;
+    color: rgba(0,0,0,.8);
+    word-break: break-word;
+}
+
+.annotation-list-item .annotation-note {
+    font-size: 12px;
+    color: rgba(0,0,0,.6);
+}
+
+.annotation-list-item .annotation-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.annotation-color-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    display: inline-block;
+    margin-right: 6px;
+}
+
+.annotation-delete-btn {
+    border: none;
+    background: transparent;
+    color: rgba(0,0,0,.5);
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.annotation-delete-btn:hover {
+    color: rgba(0,0,0,1);
+}
+
 #close-app-icon,
 #minimize-app-icon {
     stroke: black;
@@ -30,10 +154,20 @@
     position: relative;
 	display: flex;
 	flex-direction: row;
-	align-items: center;
+	align-items: flex-start;
 	justify-content: center;
-	gap: 50px;
+	gap: 20px;
 }
+
+#reader-main {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+}
+
 #book-content-columns-wrapper {
     height: 100%;
     width: 85%;

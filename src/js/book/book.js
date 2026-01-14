@@ -1,6 +1,7 @@
 $(window).on('load', function(){
 	window.appConfig.send('setWindowResizable');
     loadBook();
+	bindAnnotationToolbar();
 })
 
 const MAX_FONT_SIZE = 180;
@@ -14,6 +15,9 @@ let current_section_href = null;
 let current_style_settings = null;
 let book_saved_pages = null;
 let sessionDictionaryLanguage = "en"
+let annotationSelection = null;
+let annotationColor = '#E3B230';
+let annotationsList = [];
 
 var keyListener = function (e) {
 
@@ -46,10 +50,16 @@ var loadBook = async function(styleSettings = null) {
 
 	// Get books info and filter it
     var books_json = await window.bookConfig.getBooks();
-    var book_infos = await window.bookConfig.searchBook(books_json,epubCodeSearch)
+    var book_infos = await window.bookConfig.searchBook(books_json, epubCodeSearch)
+
+	if (!book_infos) {
+		console.error(`Book data for "${epubCodeSearch}" not found`);
+		$('#book-content-columns').html('<h1 class="main-text text-sb m-0">Book not found</h1>');
+		return;
+	}
 
 	// Update global variable
-	book_saved_pages = book_infos.savedPages;
+	book_saved_pages = book_infos.savedPages ?? [];
 
     // Update last time opened book
     await window.bookConfig.changeBookValue(books_json, epubCodeSearch, "lastTimeOpened", new Date());
@@ -57,6 +67,7 @@ var loadBook = async function(styleSettings = null) {
 	await loadBookInfo(book_infos);
     // Display saved pages 
 	await loadSavedPages(book_saved_pages);
+    await loadAnnotationsFromBook();
 
     // Load epub and rendition 
     book_epub = ePub(await window.appConfig.dirname() + "/epubs/" + epubCodeSearch + "/epub.epub", { openAs: "epub"})
@@ -140,6 +151,21 @@ var loadBook = async function(styleSettings = null) {
 		// Update global variable with current section href
         current_section_href = section.href;
     })
+    book_rendition.on("selected", async function (cfiRange, contents) {
+        const snippet = contents.window.getSelection().toString().trim();
+        if (!snippet) {
+            annotationSelection = null;
+            setAnnotationStatus('Select text to highlight');
+            return;
+        }
+        annotationSelection = {
+            cfiRange,
+            snippet,
+            chapter: await getCurrentChapterLabelByHref(book_epub.navigation.toc, current_section_href)
+        };
+        setAnnotationStatus('Text ready to highlight');
+        contents.window.getSelection().removeAllRanges();
+    });
 
     // Load book styles in navbar
 	await loadBookStyleSettings();
@@ -327,6 +353,127 @@ async function loadSavedPages(saved_pages){
     } else {
         $('#book-saved-pages').html('<h1 class="main-text text-small op-5" style="text-align: center;">no page saved</h1>');
     }
+}
+
+function bindAnnotationToolbar() {
+    $('.annotation-color-swatch').on('click', function () {
+        $('.annotation-color-swatch').removeClass('active');
+        $(this).addClass('active');
+        annotationColor = $(this).data('color');
+    });
+    $('#annotation-add-btn').on('click', function () {
+        handleAnnotationSave();
+    });
+    $('#annotation-list').on('click', '.annotation-list-item', function () {
+        const cfi = $(this).data('cfi');
+        if (cfi && book_rendition) {
+            book_rendition.display(cfi);
+        }
+    });
+    $('#annotation-list').on('click', '.annotation-delete-btn', function (e) {
+        e.stopPropagation();
+        const cfi = $(this).data('cfi');
+        if (cfi) {
+            deleteAnnotation(cfi);
+        }
+    });
+}
+
+async function handleAnnotationSave() {
+    if (!annotationSelection || !annotationSelection.cfiRange) {
+        setAnnotationStatus('Select text before highlighting.');
+        return;
+    }
+    const noteText = $('#annotation-note-input').val().trim();
+    const annotation = {
+        cfi: annotationSelection.cfiRange,
+        color: annotationColor,
+        note: noteText.length ? noteText : null,
+        snippet: annotationSelection.snippet,
+        chapter: annotationSelection.chapter ?? `Page ${$('#current_page_value').text()}`,
+        createdAt: new Date().toISOString()
+    };
+    await persistAnnotation(annotation);
+    $('#annotation-note-input').val('');
+    annotationSelection = null;
+    setAnnotationStatus('Annotation saved.');
+    $('.annotation-color-swatch').removeClass('active');
+    $('.annotation-color-swatch[data-color="#E3B230"]').addClass('active');
+    annotationColor = '#E3B230';
+}
+
+async function persistAnnotation(annotation) {
+    highlightAnnotation(annotation);
+    let books_json = await window.bookConfig.getBooks();
+    let book_data = await window.bookConfig.searchBook(books_json, epubCodeSearch);
+    if (!book_data.annotations) book_data.annotations = [];
+    const existingIndex = book_data.annotations.findIndex((item) => item.cfi === annotation.cfi);
+    if (existingIndex > -1) {
+        book_data.annotations.splice(existingIndex, 1);
+    }
+    book_data.annotations.unshift(annotation);
+    annotationsList = book_data.annotations;
+    await window.bookConfig.changeBookValue(books_json, epubCodeSearch, "annotations", book_data.annotations);
+    renderAnnotationsList();
+}
+
+function highlightAnnotation(annotation) {
+    if (!book_rendition) return;
+    book_rendition.annotations.highlight(annotation.cfi, annotation, () => { }, null, {
+        background: annotation.color,
+        color: '#000000',
+        'mix-blend-mode': 'multiply'
+    });
+}
+
+async function loadAnnotationsFromBook() {
+    let books_json = await window.bookConfig.getBooks();
+    let book_data = await window.bookConfig.searchBook(books_json, epubCodeSearch);
+    annotationsList = book_data.annotations ?? [];
+    annotationsList.forEach((annotation) => highlightAnnotation(annotation));
+    renderAnnotationsList();
+}
+
+function renderAnnotationsList() {
+    const container = $('#annotation-list');
+    container.html('');
+    if (annotationsList.length === 0) {
+        container.html('<h1 class="main-text text-small op-5" style="text-align: center;">No annotations yet.</h1>');
+        return;
+    }
+    annotationsList.forEach((annotation) => {
+        const date = annotation.createdAt ? new Date(annotation.createdAt).toLocaleString() : '';
+        const snippet = annotation.snippet?.length ? annotation.snippet : 'Highlighted text';
+        container.append(`
+            <div class="annotation-list-item flex-column" data-cfi="${annotation.cfi}">
+                <div class="flex-row flex-v-center annotation-actions">
+                    <span class="main-text text-small op-5">${annotation.chapter ?? ''}</span>
+                    <button class="annotation-delete-btn" data-cfi="${annotation.cfi}">&times;</button>
+                </div>
+                <div class="flex-row flex-v-center">
+                    <span class="annotation-color-indicator" style="background:${annotation.color};"></span>
+                    <span class="main-text text-sb">${snippet}</span>
+                </div>
+                ${annotation.note ? `<p class="annotation-note">${annotation.note}</p>` : ''}
+                ${date ? `<span class="main-text text-small op-5">${date}</span>` : ''}
+            </div>
+        `);
+    });
+}
+
+async function deleteAnnotation(cfi) {
+    if (!cfi) return;
+    let books_json = await window.bookConfig.getBooks();
+    let book_data = await window.bookConfig.searchBook(books_json, epubCodeSearch);
+    book_data.annotations = book_data.annotations?.filter((item) => item.cfi !== cfi) ?? [];
+    annotationsList = book_data.annotations;
+    await window.bookConfig.changeBookValue(books_json, epubCodeSearch, "annotations", book_data.annotations);
+    book_rendition?.annotations.remove(cfi, 'highlight');
+    renderAnnotationsList();
+}
+
+function setAnnotationStatus(message) {
+    $('#annotation-status').text(message);
 }
 async function handleSavePage() {
     if ($('#book-saved-btn').hasClass("saving")) {
